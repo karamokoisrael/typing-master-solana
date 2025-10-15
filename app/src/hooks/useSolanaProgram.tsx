@@ -2,7 +2,7 @@
 'use client';
 
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from '@solana/web3.js';
+import { PublicKey, Transaction, TransactionInstruction, SystemProgram, Keypair } from '@solana/web3.js';
 import { useState, useEffect, useCallback } from 'react';
 
 // Program ID - deployed smart contract
@@ -180,17 +180,20 @@ export function useSolanaProgram() {
     if (!publicKey) return;
 
     try {
-      const contestKeypair = new PublicKey(Math.random().toString()); // In real app, generate properly
+      // Generate a new keypair for the contest account
+      const contestKeypair = Keypair.generate();
 
       const instructionData = Buffer.alloc(13);
       instructionData.writeUInt8(InstructionType.CreateContest, 0);
       instructionData.writeUInt32LE(textId, 1);
-      instructionData.writeBigUInt64LE(BigInt(duration), 5);
+      // Write duration as 64-bit by splitting into two 32-bit parts
+      instructionData.writeUInt32LE(duration, 5);
+      instructionData.writeUInt32LE(0, 9); // High 32 bits (duration is small, so 0)
 
       const instruction = new TransactionInstruction({
         keys: [
           { pubkey: publicKey, isSigner: true, isWritable: true },
-          { pubkey: contestKeypair, isSigner: false, isWritable: true },
+          { pubkey: contestKeypair.publicKey, isSigner: true, isWritable: true },
           { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
         ],
         programId: PROGRAM_ID,
@@ -198,6 +201,16 @@ export function useSolanaProgram() {
       });
 
       const transaction = new Transaction().add(instruction);
+      
+      // Get recent blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+      
+      // Sign with the contest keypair first
+      transaction.partialSign(contestKeypair);
+      
+      // Send the transaction (wallet will sign automatically)
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, 'confirmed');
 
@@ -205,6 +218,7 @@ export function useSolanaProgram() {
       await fetchContests();
     } catch (error) {
       console.error('Error creating contest:', error);
+      throw error;
     }
   }, [publicKey, connection, sendTransaction]);
 
@@ -247,7 +261,9 @@ export function useSolanaProgram() {
       instructionData.writeUInt8(InstructionType.SubmitResult, 0);
       instructionData.writeUInt32LE(wpm, 1);
       instructionData.writeUInt32LE(accuracy, 5);
-      instructionData.writeBigUInt64LE(BigInt(timeTaken), 9);
+      // Write timeTaken as 64-bit by splitting into two 32-bit parts
+      instructionData.writeUInt32LE(timeTaken, 9);
+      instructionData.writeUInt32LE(0, 13); // High 32 bits (timeTaken is small, so 0)
 
       const instruction = new TransactionInstruction({
         keys: [

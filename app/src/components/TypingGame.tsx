@@ -7,13 +7,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Timer, Target, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { article } from 'txtgen';
 
 const SAMPLE_TEXTS = [
-  "The quick brown fox jumps over the lazy dog.",
-  "Pack my box with five dozen liquor jugs.",
-  "How vexingly quick daft zebras jump!",
-  "The five boxing wizards jump quickly.",
-  "Sphinx of black quartz, judge my vow.",
+  article(),
+  "The quick brown fox jumps over the lazy dog. This classic pangram contains every letter of the alphabet and is perfect for typing practice.",
+  "In the heart of Silicon Valley, innovative minds work tirelessly to create the next breakthrough technology that will change the world forever.",
+  "Coffee shops buzz with energy as writers, students, and entrepreneurs gather to pursue their dreams while sipping on carefully crafted beverages.",
+  "Modern web development combines powerful frameworks like React and Next.js with blockchain technology to create decentralized applications.",
+  "The art of coding requires patience, creativity, and problem-solving skills that improve with consistent practice and dedication to learning.",
+  "Mountains tower majestically above misty valleys where ancient forests whisper secrets of times long past to those who listen carefully.",
+  "Digital transformation has revolutionized how businesses operate, making remote work and global collaboration more accessible than ever before.",
+  "Musicians blend traditional instruments with electronic synthesizers to create unique soundscapes that transport listeners to otherworldly realms."
 ];
 
 export function TypingGame() {
@@ -24,6 +29,7 @@ export function TypingGame() {
   const [endTime, setEndTime] = useState<number | null>(null);
   const [errors, setErrors] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const textContainerRef = useRef<HTMLDivElement>(null);
   const { updatePracticeStats, isInitialized } = useSolanaProgram();
 
   const isComplete = userInput.length === currentText.length;
@@ -47,6 +53,24 @@ export function TypingGame() {
       }
     }
   }, [isComplete, startTime, wpm, accuracy, currentText, updatePracticeStats, isInitialized]);
+
+  // Auto-scroll effect when user progresses through text (throttled for performance)
+  const scrollTrigger = Math.floor(userInput.length / 50);
+  useEffect(() => {
+    if (textContainerRef.current && userInput.length > 0) {
+      const container = textContainerRef.current;
+      
+      // Simple scroll calculation - scroll down every 50 characters approximately
+      const charsPerLine = 80; // approximate characters per line
+      const currentLine = Math.floor(userInput.length / charsPerLine);
+      const lineHeight = 48; // approximate line height in pixels
+      const targetScrollTop = Math.max(0, (currentLine - 2) * lineHeight);
+      
+      if (Math.abs(container.scrollTop - targetScrollTop) > lineHeight) {
+        container.scrollTop = targetScrollTop;
+      }
+    }
+  }, [scrollTrigger, userInput.length]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -134,24 +158,29 @@ export function TypingGame() {
           <Card>
             <CardContent className="p-6">
               <div 
-                className="font-mono text-xl leading-relaxed min-h-[120px] flex items-center flex-wrap"
+                ref={textContainerRef}
+                className="font-mono text-lg leading-loose min-h-[120px] max-h-[200px] overflow-y-auto overflow-x-hidden"
                 style={{ 
                   fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Menlo, "Liberation Mono", "Courier New", monospace',
-                  letterSpacing: '0.05em'
+                  letterSpacing: '0.05em',
+                  lineHeight: '2',
+                  wordWrap: 'break-word',
+                  scrollBehavior: 'smooth'
                 }}
               >
                 {currentText.split('').map((char, index) => (
                   <span 
-                    key={index} 
-                    className={`${getCharacterClass(index)} inline-block`}
+                    key={index}
+                    className={`${getCharacterClass(index)} inline-block relative`}
                     style={{ 
-                      minWidth: char === ' ' ? '0.6em' : '0.6em',
-                      textAlign: 'center',
                       padding: '2px 1px',
                       borderRadius: '3px'
                     }}
                   >
                     {char === ' ' ? '\u00A0' : char}
+                    {index === userInput.length && (
+                      <span className="absolute -left-0.5 top-0 w-0.5 h-full bg-blue-500 animate-pulse" />
+                    )}
                   </span>
                 ))}
               </div>
@@ -169,11 +198,11 @@ export function TypingGame() {
               value={userInput}
               onChange={handleInputChange}
               disabled={isComplete}
-              className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-14 w-full rounded-md border border-input bg-background px-4 py-3 text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               style={{ 
                 fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Menlo, "Liberation Mono", "Courier New", monospace',
-                fontSize: '1.25rem',
-                letterSpacing: '0.05em'
+                letterSpacing: '0.05em',
+                lineHeight: '1.5'
               }}
               placeholder={isComplete ? "Great job! Click 'New Text' to continue" : "Start typing here..."}
               autoComplete="off"
