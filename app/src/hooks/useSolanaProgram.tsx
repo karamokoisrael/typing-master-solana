@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 'use client';
 
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
@@ -60,7 +61,7 @@ export function useSolanaProgram() {
     return playerPDA;
   }, []);
 
-    // Check if player account exists
+  // Check if player account exists
   const checkPlayerAccount = useCallback(async () => {
     if (!publicKey || isLoading) return;
 
@@ -69,7 +70,7 @@ export function useSolanaProgram() {
     try {
       const playerPDA = await getPlayerPDA(publicKey);
       const accountInfo = await connection.getAccountInfo(playerPDA);
-      
+
       if (accountInfo) {
         setIsInitialized(true);
         // TODO: Parse player data properly
@@ -92,11 +93,13 @@ export function useSolanaProgram() {
       throw new Error('Wallet not connected or operation in progress');
     }
 
+
     setIsLoading(true);
     setError(null);
     try {
       const playerPDA = await getPlayerPDA(publicKey);
-      
+      console.log('Player PDA:', playerPDA.toBase58());
+      console.log('Public Key:', publicKey.toBase58());
       // Double-check if account already exists
       const accountInfo = await connection.getAccountInfo(playerPDA);
       if (accountInfo) {
@@ -116,8 +119,10 @@ export function useSolanaProgram() {
         data: Buffer.from([InstructionType.InitializePlayer]),
       });
 
+      console.log("We are here already");
+
       const transaction = new Transaction().add(instruction);
-        
+
       // Get recent blockhash for the transaction
       const { blockhash } = await connection.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
@@ -125,7 +130,7 @@ export function useSolanaProgram() {
 
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, 'confirmed');
-      
+
       setIsInitialized(true);
       setHasChecked(true); // Mark as checked after successful initialization
       return signature;
@@ -137,7 +142,7 @@ export function useSolanaProgram() {
       setIsLoading(false);
     }
   }, [publicKey, connection, sendTransaction, getPlayerPDA, isLoading]);  // Update practice stats
-  
+
   const updatePracticeStats = useCallback(async (wpm: number, accuracy: number, wordsTyped: number) => {
     if (!publicKey || !isInitialized) return;
 
@@ -305,7 +310,7 @@ export function useSolanaProgram() {
       try {
         const playerPDA = await getPlayerPDA(publicKey);
         const accountInfo = await connection.getAccountInfo(playerPDA);
-        
+
         if (accountInfo) {
           setIsInitialized(true);
           console.log('Player account found');

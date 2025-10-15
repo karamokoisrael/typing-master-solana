@@ -5,7 +5,7 @@ use solana_program::{
     clock::Clock,
     entrypoint::ProgramResult,
     msg,
-    program::invoke,
+    program::{invoke, invoke_signed},
     program_error::ProgramError,
     pubkey::Pubkey,
     rent::Rent,
@@ -70,6 +70,11 @@ impl Processor {
             return Err(TypingError::InvalidAccountData.into());
         }
         
+        // Check if account already exists
+        if player_account.data_len() > 0 {
+            return Err(TypingError::PlayerAlreadyInitialized.into());
+        }
+        
         let clock = Clock::get()?;
         let player = Player::new(*payer.key, clock.unix_timestamp);
         
@@ -77,8 +82,11 @@ impl Processor {
         let account_len = Player::SIZE;
         let lamports = rent.minimum_balance(account_len);
         
-        // Create the account
-        invoke(
+        // Create the PDA account using invoke_signed
+        let seeds = &[b"player", payer.key.as_ref(), &[bump_seed]];
+        let signer_seeds = &[&seeds[..]];
+        
+        invoke_signed(
             &system_instruction::create_account(
                 payer.key,
                 player_account.key,
@@ -87,6 +95,7 @@ impl Processor {
                 program_id,
             ),
             &[payer.clone(), player_account.clone(), system_program.clone()],
+            signer_seeds,
         )?;
         
         // Serialize and store player data
@@ -246,5 +255,303 @@ impl Processor {
         
         msg!("Practice stats updated: WPM {}, Accuracy {}%", wpm, accuracy);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        error::TypingError,
+        state::Player,
+    };
+    use borsh::BorshSerialize;
+    use solana_program::{
+        account_info::AccountInfo,
+        program_error::ProgramError,
+        pubkey::Pubkey,
+        system_program,
+    };
+
+    /// Helper function to create test accounts
+    fn create_test_accounts() -> (Pubkey, Pubkey, Pubkey) {
+        let payer = Pubkey::new_unique();
+        let program_id = Pubkey::new_unique();
+        
+        // Generate the expected PDA
+        let (player_pda, _) = Pubkey::find_program_address(
+            &[b"player", payer.as_ref()],
+            &program_id,
+        );
+        
+        (payer, player_pda, program_id)
+    }
+
+    /// Helper function to create AccountInfo from test data
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        is_signer: bool,
+        is_writable: bool,
+        lamports: &'a mut u64,
+        data: &'a mut [u8],
+        owner: &'a Pubkey,
+    ) -> AccountInfo<'a> {
+        AccountInfo::new(
+            key,
+            is_signer,
+            is_writable,
+            lamports,
+            data,
+            owner,
+            false, // executable
+            0,     // rent_epoch
+        )
+    }
+
+    #[test]
+    fn test_initialize_player_missing_signature() {
+        let (payer, player_pda, program_id) = create_test_accounts();
+        let system_program_id = system_program::id();
+        
+        let mut payer_lamports = 1_000_000_000;
+        let mut payer_data = vec![];
+        let mut player_lamports = 0;
+        let mut player_data = vec![0; Player::SIZE];
+        let mut system_lamports = 0;
+        let mut system_data = vec![];
+        
+        // Create payer account WITHOUT signer flag
+        let payer_account = create_account_info(
+            &payer,
+            false, // is_signer = false (this should cause the error)
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_program_id,
+        );
+        
+        let player_account = create_account_info(
+            &player_pda,
+            false,
+            true,
+            &mut player_lamports,
+            &mut player_data,
+            &program_id,
+        );
+        
+        let system_account = create_account_info(
+            &system_program_id,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program_id,
+        );
+        
+        let accounts = vec![payer_account, player_account, system_account];
+        
+        let result = Processor::process_initialize_player(&program_id, &accounts);
+        
+        assert_eq!(result.unwrap_err(), ProgramError::MissingRequiredSignature);
+    }
+
+    #[test]
+    fn test_initialize_player_invalid_pda() {
+        let (payer, _player_pda, program_id) = create_test_accounts();
+        let wrong_pda = Pubkey::new_unique(); // Wrong PDA
+        let system_program_id = system_program::id();
+        
+        let mut payer_lamports = 1_000_000_000;
+        let mut payer_data = vec![];
+        let mut player_lamports = 0;
+        let mut player_data = vec![0; Player::SIZE];
+        let mut system_lamports = 0;
+        let mut system_data = vec![];
+        
+        let payer_account = create_account_info(
+            &payer,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_program_id,
+        );
+        
+        // Use wrong PDA address
+        let player_account = create_account_info(
+            &wrong_pda, // This is not the expected PDA
+            false,
+            true,
+            &mut player_lamports,
+            &mut player_data,
+            &program_id,
+        );
+        
+        let system_account = create_account_info(
+            &system_program_id,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program_id,
+        );
+        
+        let accounts = vec![payer_account, player_account, system_account];
+        
+        let result = Processor::process_initialize_player(&program_id, &accounts);
+        
+        assert_eq!(
+            result.unwrap_err(),
+            ProgramError::from(TypingError::InvalidAccountData)
+        );
+    }
+
+    #[test]
+    fn test_initialize_player_already_initialized() {
+        let (payer, player_pda, program_id) = create_test_accounts();
+        let system_program_id = system_program::id();
+        
+        let mut payer_lamports = 1_000_000_000;
+        let mut payer_data = vec![];
+        let mut player_lamports = 0;
+        
+        // Create player data that's already initialized (non-zero length)
+        let existing_player = Player::new(payer, 1234567890);
+        let mut player_data = vec![0; Player::SIZE];
+        existing_player.serialize(&mut player_data.as_mut_slice()).unwrap();
+        
+        let mut system_lamports = 0;
+        let mut system_data = vec![];
+        
+        let payer_account = create_account_info(
+            &payer,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_program_id,
+        );
+        
+        let player_account = create_account_info(
+            &player_pda,
+            false,
+            true,
+            &mut player_lamports,
+            &mut player_data,
+            &program_id,
+        );
+        
+        let system_account = create_account_info(
+            &system_program_id,
+            false,
+            false,
+            &mut system_lamports,
+            &mut system_data,
+            &system_program_id,
+        );
+        
+        let accounts = vec![payer_account, player_account, system_account];
+        
+        let result = Processor::process_initialize_player(&program_id, &accounts);
+        
+        assert_eq!(
+            result.unwrap_err(),
+            ProgramError::from(TypingError::PlayerAlreadyInitialized)
+        );
+    }
+
+    #[test]
+    fn test_initialize_player_insufficient_accounts() {
+        let (payer, _player_pda, program_id) = create_test_accounts();
+        let system_program_id = system_program::id();
+        
+        let mut payer_lamports = 1_000_000_000;
+        let mut payer_data = vec![];
+        
+        let payer_account = create_account_info(
+            &payer,
+            true,
+            true,
+            &mut payer_lamports,
+            &mut payer_data,
+            &system_program_id,
+        );
+        
+        // Only provide one account instead of three
+        let accounts = vec![payer_account];
+        
+        let result = Processor::process_initialize_player(&program_id, &accounts);
+        
+        assert_eq!(result.unwrap_err(), ProgramError::NotEnoughAccountKeys);
+    }
+
+    #[test]
+    fn test_pda_generation() {
+        let payer = Pubkey::new_unique();
+        let program_id = Pubkey::new_unique();
+        
+        let (pda1, bump1) = Pubkey::find_program_address(
+            &[b"player", payer.as_ref()],
+            &program_id,
+        );
+        
+        let (pda2, bump2) = Pubkey::find_program_address(
+            &[b"player", payer.as_ref()],
+            &program_id,
+        );
+        
+        // Same inputs should generate same PDA and bump
+        assert_eq!(pda1, pda2);
+        assert_eq!(bump1, bump2);
+        
+        // Different payer should generate different PDA
+        let other_payer = Pubkey::new_unique();
+        let (pda3, _) = Pubkey::find_program_address(
+            &[b"player", other_payer.as_ref()],
+            &program_id,
+        );
+        
+        assert_ne!(pda1, pda3);
+    }
+
+    #[test]
+    fn test_player_data_serialization() {
+        let payer = Pubkey::new_unique();
+        let timestamp = 1234567890;
+        
+        let player = Player::new(payer, timestamp);
+        
+        // Test serialization
+        let mut data = vec![0; Player::SIZE];
+        player.serialize(&mut data.as_mut_slice()).unwrap();
+        
+        // Test deserialization
+        let deserialized_player = Player::try_from_slice(&data).unwrap();
+        
+        assert_eq!(player.owner, deserialized_player.owner);
+        assert_eq!(player.total_tests, deserialized_player.total_tests);
+        assert_eq!(player.best_wpm, deserialized_player.best_wpm);
+        assert_eq!(player.average_wpm, deserialized_player.average_wpm);
+        assert_eq!(player.best_accuracy, deserialized_player.best_accuracy);
+        assert_eq!(player.total_words_typed, deserialized_player.total_words_typed);
+        assert_eq!(player.created_at, deserialized_player.created_at);
+        assert_eq!(player.last_activity, deserialized_player.last_activity);
+    }
+
+    #[test]
+    fn test_player_creation() {
+        let owner = Pubkey::new_unique();
+        let timestamp = 1640995200; // Jan 1, 2022
+        
+        let player = Player::new(owner, timestamp);
+        
+        assert_eq!(player.owner, owner);
+        assert_eq!(player.total_tests, 0);
+        assert_eq!(player.best_wpm, 0);
+        assert_eq!(player.average_wpm, 0);
+        assert_eq!(player.best_accuracy, 0);
+        assert_eq!(player.total_words_typed, 0);
+        assert_eq!(player.created_at, timestamp);
+        assert_eq!(player.last_activity, timestamp);
     }
 }
