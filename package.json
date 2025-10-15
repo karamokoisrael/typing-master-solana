@@ -1,5 +1,5 @@
 {
-  "name": "typing-master-rust",
+  "name": "typing-master-solana",
   "version": "1.0.0",
   "description": "A competitive typing game built on the Solana blockchain with Next.js frontend.",
   "main": "index.js",

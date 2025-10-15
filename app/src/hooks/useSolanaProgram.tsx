@@ -46,6 +46,8 @@ export function useSolanaProgram() {
   const { publicKey, sendTransaction } = useWallet();
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
   const [contests, setContests] = useState<ContestData[]>([]);
 
@@ -58,25 +60,26 @@ export function useSolanaProgram() {
     return playerPDA;
   }, []);
 
-  // Check if player account exists
+    // Check if player account exists
   const checkPlayerAccount = useCallback(async () => {
     if (!publicKey || isLoading) return;
 
     setIsLoading(true);
+    setError(null);
     try {
       const playerPDA = await getPlayerPDA(publicKey);
       const accountInfo = await connection.getAccountInfo(playerPDA);
       
       if (accountInfo) {
         setIsInitialized(true);
-        console.log('Player account found');
         // TODO: Parse player data properly
       } else {
         setIsInitialized(false);
-        console.log('Player account not found');
       }
-    } catch (error) {
-      console.error('Error checking player account:', error);
+      setHasChecked(true);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to check player account');
+      setError(error);
       setIsInitialized(false);
     } finally {
       setIsLoading(false);
@@ -84,22 +87,23 @@ export function useSolanaProgram() {
   }, [publicKey, connection, getPlayerPDA, isLoading]);
 
   // Initialize player account
-  const initializePlayer = useCallback(async () => {
+  const initializePlayer = useCallback(async (): Promise<string> => {
     if (!publicKey || isLoading) {
       throw new Error('Wallet not connected or operation in progress');
     }
 
     setIsLoading(true);
+    setError(null);
     try {
       const playerPDA = await getPlayerPDA(publicKey);
       
       // Double-check if account already exists
       const accountInfo = await connection.getAccountInfo(playerPDA);
       if (accountInfo) {
-        console.log('Player account already exists');
         setIsInitialized(true);
+        setHasChecked(true);
         setIsLoading(false);
-        return;
+        return 'Account already exists';
       }
 
       const instruction = new TransactionInstruction({
@@ -119,16 +123,15 @@ export function useSolanaProgram() {
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = publicKey;
 
-      console.log('Sending initialization transaction...');
       const signature = await sendTransaction(transaction, connection);
-      console.log('Transaction sent, confirming...', signature);
-      
       await connection.confirmTransaction(signature, 'confirmed');
       
       setIsInitialized(true);
-      console.log('Player initialized successfully:', signature);
-    } catch (error) {
-      console.error('Error initializing player:', error);
+      setHasChecked(true); // Mark as checked after successful initialization
+      return signature;
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to initialize player account');
+      setError(error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -295,18 +298,45 @@ export function useSolanaProgram() {
 
   // Check if player is initialized on wallet connect
   useEffect(() => {
-    if (publicKey && !isLoading) {
-      checkPlayerAccount();
+    const checkAccount = async () => {
+      if (!publicKey || isLoading) return;
+
+      setIsLoading(true);
+      try {
+        const playerPDA = await getPlayerPDA(publicKey);
+        const accountInfo = await connection.getAccountInfo(playerPDA);
+        
+        if (accountInfo) {
+          setIsInitialized(true);
+          console.log('Player account found');
+        } else {
+          setIsInitialized(false);
+          console.log('Player account not found - ready for initialization');
+        }
+        setHasChecked(true);
+      } catch (error) {
+        console.error('Error checking player account:', error);
+        setIsInitialized(false);
+        setHasChecked(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (publicKey && !hasChecked && !isLoading) {
+      checkAccount();
     } else if (!publicKey) {
       setIsInitialized(false);
       setPlayerData(null);
       setContests([]);
+      setHasChecked(false);
     }
-  }, [publicKey, isLoading, checkPlayerAccount]);
+  }, [publicKey, hasChecked, isLoading, connection, getPlayerPDA]); // Include all dependencies
 
   return {
     isInitialized,
     isLoading,
+    error,
     playerData,
     contests,
     initializePlayer,

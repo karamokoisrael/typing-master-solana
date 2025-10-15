@@ -7,115 +7,184 @@ import { PlayerStats } from '@/components/PlayerStats';
 import { ContestList } from '@/components/ContestList';
 import { useSolanaProgram } from '@/hooks/useSolanaProgram';
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ErrorDialog } from '@/components/ui/error-dialog';
+import { SuccessDialog } from '@/components/ui/success-dialog';
+import { LoadingDialog } from '@/components/ui/loading-dialog';
 
 export default function Home() {
   const { connected } = useWallet();
-  const { isInitialized, isLoading, initializePlayer } = useSolanaProgram();
+  const { isInitialized, isLoading, error, initializePlayer } = useSolanaProgram();
   const [activeTab, setActiveTab] = useState<'practice' | 'contests' | 'stats'>('practice');
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [initError, setInitError] = useState<Error | null>(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [transactionSignature, setTransactionSignature] = useState('');
 
   const handleInitialize = async () => {
     try {
-      await initializePlayer();
+      const signature = await initializePlayer();
+      if (signature === 'Account already exists') {
+        setSuccessMessage('Your account is already initialized and ready to use!');
+        setTransactionSignature('');
+      } else {
+        setSuccessMessage('Your player account has been successfully initialized on the Solana blockchain!');
+        setTransactionSignature(signature);
+      }
+      setShowSuccessDialog(true);
     } catch (error) {
-      console.error('Failed to initialize:', error);
-      alert('Failed to initialize account. Please check console and wallet setup.');
+      setInitError(error instanceof Error ? error : new Error('Unknown error occurred'));
+      setShowErrorDialog(true);
     }
   };
 
   if (!connected) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-4">Typing Master</h1>
-          <p className="text-gray-400 mb-8">Connect your Solana wallet to start typing!</p>
-          <WalletMultiButton />
-          <div className="mt-8 p-4 bg-yellow-900 border border-yellow-700 rounded-lg text-yellow-100">
-            <p className="text-sm">
-              💡 <strong>Using localhost?</strong> Make sure your wallet is set to localhost network!
-              <br />See WALLET_SETUP.md for detailed instructions.
-            </p>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold">Typing Master</CardTitle>
+            <CardDescription>
+              Connect your Solana wallet to start typing!
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-center">
+              <WalletMultiButton />
+            </div>
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-600">💡</span>
+                <div className="text-sm text-yellow-800">
+                  <p className="font-medium">Using localhost?</p>
+                  <p>Make sure your wallet is set to localhost network!</p>
+                  <p className="text-xs mt-1">See WALLET_SETUP.md for detailed instructions.</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   if (!isInitialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-        <div className="text-center max-w-md">
-          <h1 className="text-4xl font-bold mb-4">Welcome to Typing Master!</h1>
-          <p className="text-gray-400 mb-8">
-            First time here? Initialize your account on the Solana blockchain to get started.
-          </p>
-          <button
-            onClick={handleInitialize}
-            disabled={isLoading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-colors"
-          >
-            {isLoading ? 'Initializing...' : 'Initialize Account'}
-          </button>
-          <div className="mt-8 p-4 bg-blue-900 border border-blue-700 rounded-lg text-blue-100">
-            <p className="text-sm">
-              🔐 This will create your player account on the Solana blockchain.
-              <br />You&apos;ll need to approve the transaction in your wallet.
-            </p>
-          </div>
-          <div className="mt-4 p-4 bg-yellow-900 border border-yellow-700 rounded-lg text-yellow-100">
-            <p className="text-sm">
-              ⚠️ <strong>Getting errors?</strong> Check WALLET_SETUP.md for troubleshooting.
-              <br />Make sure your wallet is on localhost network with SOL balance.
-            </p>
-          </div>
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl font-bold">Welcome to Typing Master!</CardTitle>
+              <CardDescription>
+                Initialize your account on the Solana blockchain to get started.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button 
+                onClick={handleInitialize}
+                disabled={isLoading}
+                className="w-full"
+                size="lg"
+              >
+                {isLoading ? 'Initializing...' : 'Initialize Account'}
+              </Button>
+              
+              <div className="space-y-3">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <span className="text-blue-600">🔐</span>
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">Blockchain Account</p>
+                      <p>This will create your player account on the Solana blockchain.</p>
+                      <p className="text-xs mt-1">You&apos;ll need to approve the transaction in your wallet.</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <span className="text-amber-600">⚠️</span>
+                    <div className="text-sm text-amber-800">
+                      <p className="font-medium">Getting errors?</p>
+                      <p>Check WALLET_SETUP.md for troubleshooting.</p>
+                      <p className="text-xs mt-1">Make sure your wallet is on localhost network with SOL balance.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+
+        {/* Dialogs */}
+        <LoadingDialog
+          open={isLoading}
+          title="Initializing Account"
+          description="Creating your player account on the Solana blockchain..."
+        />
+        
+        <ErrorDialog
+          open={showErrorDialog}
+          onClose={() => setShowErrorDialog(false)}
+          title="Initialization Failed"
+          description="There was an error initializing your account. Please check your wallet connection and try again."
+          error={initError}
+        />
+        
+        <SuccessDialog
+          open={showSuccessDialog}
+          onClose={() => setShowSuccessDialog(false)}
+          title="Account Initialized!"
+          description={successMessage}
+          transactionSignature={transactionSignature}
+        />
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700">
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Typing Master</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">Typing Master</h1>
+            <Badge variant="secondary" className="text-xs">
+              Solana Powered
+            </Badge>
+          </div>
           <WalletMultiButton />
         </div>
       </header>
 
       {/* Navigation */}
-      <nav className="bg-gray-800 border-b border-gray-700">
+      <nav className="border-b bg-muted/50">
         <div className="container mx-auto px-4">
-          <div className="flex space-x-8">
-            <button
+          <div className="flex space-x-1">
+            <Button
+              variant={activeTab === 'practice' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('practice')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === 'practice'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
             >
               Practice
-            </button>
-            <button
+            </Button>
+            <Button
+              variant={activeTab === 'contests' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('contests')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === 'contests'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
             >
               Contests
-            </button>
-            <button
+            </Button>
+            <Button
+              variant={activeTab === 'stats' ? 'default' : 'ghost'}
               onClick={() => setActiveTab('stats')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                activeTab === 'stats'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
             >
               Statistics
-            </button>
+            </Button>
           </div>
         </div>
       </nav>

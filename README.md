@@ -5,7 +5,7 @@ A competitive typing game built on the Solana blockchain with Next.js frontend.
 ## Project Structure
 
 ```
-typing-master-rust/
+typing-master-solana/
 ├── program/                 # Solana smart contract (native, no Anchor)
 │   ├── src/
 │   │   ├── lib.rs          # Program entry point
@@ -133,7 +133,7 @@ Visit http://localhost:3000 to see the application.
 ## Project Structure
 
 ```
-typing-master-rust/
+typing-master-solana/
 ├── backend/                 # Rust backend server
 │   ├── src/
 │   │   ├── main.rs         # Main server entry point
@@ -164,7 +164,7 @@ typing-master-rust/
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd typing-master-rust
+   cd typing-master-solana
    ```
 
 2. **Build and run the backend**
