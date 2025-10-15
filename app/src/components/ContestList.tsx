@@ -3,6 +3,11 @@
 import { useState } from 'react';
 import { useSolanaProgram } from '@/hooks/useSolanaProgram';
 import { PublicKey } from '@solana/web3.js';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Users, Clock, Trophy, Plus, Play, Eye } from 'lucide-react';
+import { toast } from 'sonner';
 
 const CONTEST_TEXTS = [
   { id: 1, name: "Quick Brown Fox", text: "The quick brown fox jumps over the lazy dog." },
@@ -18,203 +23,237 @@ export function ContestList() {
   const [duration, setDuration] = useState(60);
 
   const handleCreateContest = async () => {
-    await createContest(selectedTextId, duration);
-    setShowCreateForm(false);
+    try {
+      await createContest(selectedTextId, duration);
+      setShowCreateForm(false);
+      toast.success('Contest created successfully!', {
+        description: 'Your contest has been posted to the blockchain'
+      });
+    } catch (error) {
+      toast.error('Failed to create contest', {
+        description: 'Please check your connection and try again'
+      });
+    }
   };
 
   if (!isInitialized) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-400">Initialize your player account to access contests</p>
-      </div>
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <Trophy className="h-16 w-16 text-muted-foreground mb-4" />
+          <p className="text-lg font-medium mb-2">Initialize Your Account</p>
+          <p className="text-sm text-muted-foreground text-center">
+            Initialize your player account to access typing contests and compete with other players
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Typing Contests</h2>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded transition-colors"
-        >
-          Create Contest
-        </button>
-      </div>
+    <div className="max-w-6xl mx-auto space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5" />
+              Typing Contests
+            </CardTitle>
+            <Button onClick={() => setShowCreateForm(true)} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Create Contest
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
 
       {/* Create Contest Form */}
       {showCreateForm && (
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <h3 className="text-xl font-semibold mb-4">Create New Contest</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Text</label>
-              <select
-                value={selectedTextId}
-                onChange={(e) => setSelectedTextId(parseInt(e.target.value))}
-                className="w-full p-3 bg-gray-700 border border-gray-600 rounded focus:border-blue-500 focus:outline-none"
-              >
-                {CONTEST_TEXTS.map((text) => (
-                  <option key={text.id} value={text.id}>
-                    {text.name}
-                  </option>
-                ))}
-              </select>
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Contest</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Contest Text</label>
+                <select
+                  value={selectedTextId}
+                  onChange={(e) => setSelectedTextId(parseInt(e.target.value))}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {CONTEST_TEXTS.map((text) => (
+                    <option key={text.id} value={text.id}>
+                      {text.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Duration (seconds)</label>
+                <input
+                  type="number"
+                  value={duration}
+                  onChange={(e) => setDuration(parseInt(e.target.value))}
+                  min="30"
+                  max="300"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                />
+              </div>
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-2">Duration (seconds)</label>
-              <input
-                type="number"
-                value={duration}
-                onChange={(e) => setDuration(parseInt(e.target.value))}
-                min="30"
-                max="300"
-                className="w-full p-3 bg-gray-700 border border-gray-600 rounded focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-          </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Preview Text</label>
-            <div className="p-3 bg-gray-700 rounded border border-gray-600 font-mono text-sm">
-              {CONTEST_TEXTS.find(t => t.id === selectedTextId)?.text}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Preview Text</label>
+              <Card>
+                <CardContent className="p-4">
+                  <p className="font-mono text-sm">
+                    {CONTEST_TEXTS.find(t => t.id === selectedTextId)?.text}
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          </div>
 
-          <div className="flex gap-3">
-            <button
-              onClick={handleCreateContest}
-              className="px-6 py-2 bg-green-600 hover:bg-green-700 rounded transition-colors"
-            >
-              Create Contest
-            </button>
-            <button
-              onClick={() => setShowCreateForm(false)}
-              className="px-6 py-2 bg-gray-600 hover:bg-gray-700 rounded transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
+            <div className="flex gap-3">
+              <Button onClick={handleCreateContest}>
+                Create Contest
+              </Button>
+              <Button variant="outline" onClick={() => setShowCreateForm(false)}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Active Contests */}
       <div className="space-y-4">
         {contests.length === 0 ? (
-          <div className="text-center py-12 bg-gray-800 rounded-lg">
-            <div className="text-gray-400 mb-4">
-              <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3v8m0 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v8a2 2 0 002 2h2a2 2 0 002-2z" />
-              </svg>
-            </div>
-            <p className="text-xl font-semibold mb-2">No Active Contests</p>
-            <p className="text-gray-400">Create a contest to start competing with other players!</p>
-          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Eye className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold mb-2">No Active Contests</h3>
+              <p className="text-muted-foreground text-center">
+                Create a contest to start competing with other players!
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           contests.map((contest, index) => (
-            <div key={index} className="bg-gray-800 rounded-lg p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">
-                    Contest #{index + 1}
-                  </h3>
-                  <p className="text-gray-400 text-sm">
-                    Text: {CONTEST_TEXTS.find(t => t.id === contest.text_id)?.name || 'Unknown'}
-                  </p>
-                  <p className="text-gray-400 text-sm">
-                    Duration: {contest.duration} seconds
-                  </p>
-                </div>
-                
-                <div className="text-right">
-                  <div className={`inline-block px-3 py-1 rounded text-sm font-medium ${
-                    contest.status === 0 ? 'bg-yellow-600 text-yellow-100' :
-                    contest.status === 1 ? 'bg-green-600 text-green-100' :
-                    'bg-gray-600 text-gray-100'
-                  }`}>
+            <Card key={index}>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Trophy className="h-5 w-5" />
+                      Contest #{index + 1}
+                    </CardTitle>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Eye className="h-4 w-4" />
+                        {CONTEST_TEXTS.find(t => t.id === contest.text_id)?.name || 'Unknown'}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        {contest.duration}s
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <Badge variant={
+                    contest.status === 0 ? 'secondary' :
+                    contest.status === 1 ? 'default' : 'outline'
+                  }>
                     {contest.status === 0 ? 'Waiting' :
                      contest.status === 1 ? 'Active' : 'Ended'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="space-y-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2 text-sm font-medium">
+                    <Users className="h-4 w-4" />
+                    Participants ({contest.participants.length}/{contest.max_participants})
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {contest.participants.length === 0 ? (
+                      <span className="text-sm text-muted-foreground">No participants yet</span>
+                    ) : (
+                      contest.participants.map((participant, idx) => (
+                        <Badge key={idx} variant="outline" className="font-mono text-xs">
+                          {participant.toString().slice(0, 8)}...
+                        </Badge>
+                      ))
+                    )}
                   </div>
                 </div>
-              </div>
 
-              <div className="mb-4">
-                <div className="text-sm text-gray-400 mb-2">
-                  Participants ({contest.participants.length}/{contest.max_participants}):
+                <div>
+                  <div className="text-sm font-medium mb-2">Contest Text:</div>
+                  <Card>
+                    <CardContent className="p-4">
+                      <p className="font-mono text-sm">
+                        {CONTEST_TEXTS.find(t => t.id === contest.text_id)?.text}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {contest.participants.length === 0 ? (
-                    <span className="text-gray-500 text-sm">No participants yet</span>
-                  ) : (
-                    contest.participants.map((participant, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2 py-1 bg-gray-700 rounded text-xs font-mono"
-                      >
-                        {participant.toString().slice(0, 8)}...
-                      </span>
-                    ))
+
+                <div className="flex gap-3">
+                  {contest.status === 0 && contest.participants.length < contest.max_participants && (
+                    <Button onClick={() => joinContest(new PublicKey('placeholder'))}>
+                      Join Contest
+                    </Button>
+                  )}
+                  
+                  {contest.status === 1 && (
+                    <Button className="flex items-center gap-2">
+                      <Play className="h-4 w-4" />
+                      Enter Contest
+                    </Button>
+                  )}
+                  
+                  {contest.status === 2 && (
+                    <Button variant="outline" disabled>
+                      Contest Ended
+                    </Button>
                   )}
                 </div>
-              </div>
-
-              <div className="mb-4">
-                <div className="text-sm text-gray-400 mb-2">Contest Text:</div>
-                <div className="p-3 bg-gray-700 rounded font-mono text-sm">
-                  {CONTEST_TEXTS.find(t => t.id === contest.text_id)?.text}
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                {contest.status === 0 && contest.participants.length < contest.max_participants && (
-                  <button
-                    onClick={() => joinContest(new PublicKey('placeholder'))} // Replace with actual contest pubkey
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors"
-                  >
-                    Join Contest
-                  </button>
-                )}
-                
-                {contest.status === 1 && (
-                  <button className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded transition-colors">
-                    Enter Contest
-                  </button>
-                )}
-                
-                {contest.status === 2 && (
-                  <button className="px-4 py-2 bg-gray-600 cursor-not-allowed rounded" disabled>
-                    Contest Ended
-                  </button>
-                )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))
         )}
       </div>
 
       {/* Sample Contests for Demo */}
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold mb-4">Sample Contests (Demo)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {CONTEST_TEXTS.map((text) => (
-            <div key={text.id} className="bg-gray-800 rounded-lg p-4">
-              <h4 className="font-semibold mb-2">{text.name}</h4>
-              <p className="text-gray-400 text-sm mb-3 font-mono">{text.text}</p>
-              <button
-                onClick={() => {
-                  setSelectedTextId(text.id);
-                  setShowCreateForm(true);
-                }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors text-sm"
-              >
-                Create Contest
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Sample Contests (Demo)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {CONTEST_TEXTS.map((text) => (
+              <Card key={text.id}>
+                <CardContent className="p-4">
+                  <h4 className="font-semibold mb-2">{text.name}</h4>
+                  <p className="text-sm text-muted-foreground mb-3 font-mono">{text.text}</p>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setSelectedTextId(text.id);
+                      setShowCreateForm(true);
+                    }}
+                    className="w-full"
+                  >
+                    Create Contest
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
