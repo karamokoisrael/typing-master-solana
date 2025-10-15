@@ -1,0 +1,24 @@
+{
+  "name": "typing-master-rust",
+  "version": "1.0.0",
+  "description": "A competitive typing game built on the Solana blockchain with Next.js frontend.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:program": "cd program && cargo build-sbf",
+    "deploy:localhost": "solana config set --url localhost && cd program && solana program deploy target/deploy/typing_master_program.so",
+    "deploy:devnet": "solana config set --url devnet && cd program && solana program deploy target/deploy/typing_master_program.so",
+    "deploy:mainnet": "solana config set --url mainnet-beta && cd program && solana program deploy target/deploy/typing_master_program.so",
+    "start:validator": "solana-test-validator --reset",
+    "dev:frontend": "cd app && npm run dev",
+    "install:frontend": "cd app && npm install",
+    "setup:localhost": "solana config set --url localhost && solana airdrop 10",
+    "setup:devnet": "solana config set --url devnet && solana airdrop 2",
+    "config:localhost": "cd app && echo 'NEXT_PUBLIC_SOLANA_NETWORK=localhost\nNEXT_PUBLIC_SOLANA_RPC_URL=http://localhost:8899\nNEXT_PUBLIC_SOLANA_PROGRAM_ID=BLLAnstcntKVpbHqmfE4qx7SAydKWMs2udMQah5SEw7o' > .env.local",
+    "config:devnet": "cd app && echo 'NEXT_PUBLIC_SOLANA_NETWORK=devnet\nNEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com\nNEXT_PUBLIC_SOLANA_PROGRAM_ID=YOUR_DEVNET_PROGRAM_ID_HERE' > .env.local",
+    "full:deploy": "npm run build:program && npm run setup:localhost && npm run deploy:localhost && npm run config:localhost && npm run dev:frontend",
+    "full:deploy:devnet": "npm run build:program && npm run setup:devnet && npm run deploy:devnet && npm run config:devnet && npm run dev:frontend"
+  },
+  "author": "",
+  "license": "ISC"
+}
