@@ -133,10 +133,25 @@ export function TypingGame() {
           {/* Text Display */}
           <Card>
             <CardContent className="p-6">
-              <div className="font-mono text-lg leading-relaxed min-h-[120px] flex items-center">
+              <div 
+                className="font-mono text-xl leading-relaxed min-h-[120px] flex items-center flex-wrap"
+                style={{ 
+                  fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Menlo, "Liberation Mono", "Courier New", monospace',
+                  letterSpacing: '0.05em'
+                }}
+              >
                 {currentText.split('').map((char, index) => (
-                  <span key={index} className={`${getCharacterClass(index)} px-0.5 py-1 rounded`}>
-                    {char}
+                  <span 
+                    key={index} 
+                    className={`${getCharacterClass(index)} inline-block`}
+                    style={{ 
+                      minWidth: char === ' ' ? '0.6em' : '0.6em',
+                      textAlign: 'center',
+                      padding: '2px 1px',
+                      borderRadius: '3px'
+                    }}
+                  >
+                    {char === ' ' ? '\u00A0' : char}
                   </span>
                 ))}
               </div>
@@ -154,7 +169,12 @@ export function TypingGame() {
               value={userInput}
               onChange={handleInputChange}
               disabled={isComplete}
-              className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+              className="flex h-12 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              style={{ 
+                fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Menlo, "Liberation Mono", "Courier New", monospace',
+                fontSize: '1.25rem',
+                letterSpacing: '0.05em'
+              }}
               placeholder={isComplete ? "Great job! Click 'New Text' to continue" : "Start typing here..."}
               autoComplete="off"
             />
