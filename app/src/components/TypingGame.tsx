@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RefreshCw, Timer, Target, Zap } from 'lucide-react';
 import { toast } from 'sonner';
-import { article } from 'txtgen';
+import { paragraph } from 'txtgen';
 
 const SAMPLE_TEXTS = [
-  article(),
+  paragraph(),
   "The quick brown fox jumps over the lazy dog. This classic pangram contains every letter of the alphabet and is perfect for typing practice.",
   "In the heart of Silicon Valley, innovative minds work tirelessly to create the next breakthrough technology that will change the world forever.",
   "Coffee shops buzz with energy as writers, students, and entrepreneurs gather to pursue their dreams while sipping on carefully crafted beverages.",
@@ -55,19 +55,29 @@ export function TypingGame() {
   }, [isComplete, startTime, wpm, accuracy, currentText, updatePracticeStats, isInitialized]);
 
   // Auto-scroll effect when user progresses through text (throttled for performance)
-  const scrollTrigger = Math.floor(userInput.length / 50);
+  const scrollTrigger = Math.floor(userInput.length / 20); // Check every 20 characters
   useEffect(() => {
     if (textContainerRef.current && userInput.length > 0) {
       const container = textContainerRef.current;
       
-      // Simple scroll calculation - scroll down every 50 characters approximately
-      const charsPerLine = 80; // approximate characters per line
-      const currentLine = Math.floor(userInput.length / charsPerLine);
-      const lineHeight = 48; // approximate line height in pixels
-      const targetScrollTop = Math.max(0, (currentLine - 2) * lineHeight);
+      // Find the current character element by position
+      const chars = container.querySelectorAll('span');
+      const currentChar = chars[userInput.length];
       
-      if (Math.abs(container.scrollTop - targetScrollTop) > lineHeight) {
-        container.scrollTop = targetScrollTop;
+      if (currentChar) {
+        const containerRect = container.getBoundingClientRect();
+        const charRect = currentChar.getBoundingClientRect();
+        
+        // Check if we need to scroll down
+        if (charRect.bottom > containerRect.bottom - 30) {
+          const scrollAmount = charRect.bottom - containerRect.bottom + 50;
+          container.scrollTop += scrollAmount;
+        }
+        // Check if we need to scroll up
+        else if (charRect.top < containerRect.top + 30) {
+          const scrollAmount = containerRect.top - charRect.top + 50;
+          container.scrollTop -= scrollAmount;
+        }
       }
     }
   }, [scrollTrigger, userInput.length]);
@@ -106,7 +116,8 @@ export function TypingGame() {
   };
 
   const getCharacterClass = (index: number) => {
-    if (index >= userInput.length) return 'text-muted-foreground';
+    if (index > userInput.length) return 'text-muted-foreground';
+    if (index === userInput.length) return 'text-foreground bg-blue-50 dark:bg-blue-950/30'; // Current character
     if (userInput[index] === currentText[index]) return 'text-green-600 bg-green-50 dark:bg-green-950 dark:text-green-400';
     return 'text-red-600 bg-red-50 dark:bg-red-950 dark:text-red-400';
   };
