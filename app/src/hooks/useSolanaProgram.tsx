@@ -183,6 +183,7 @@ export function useSolanaProgram() {
       // Generate a new keypair for the contest account
       const contestKeypair = Keypair.generate();
 
+      // Create contest instruction data
       const instructionData = Buffer.alloc(13);
       instructionData.writeUInt8(InstructionType.CreateContest, 0);
       instructionData.writeUInt32LE(textId, 1);
@@ -200,6 +201,7 @@ export function useSolanaProgram() {
         data: instructionData,
       });
 
+      // Create transaction
       const transaction = new Transaction().add(instruction);
       
       // Get recent blockhash
